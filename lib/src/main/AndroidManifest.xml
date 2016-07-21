@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.ibm.mobilefirstplatform.clientsdk.android.core">
+
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <application android:allowBackup="true"
+        android:label="bluemix-objectstorage-clientsdk-android">
+
+    </application>
+
+</manifest>
