@@ -1,12 +1,19 @@
 apply plugin: 'com.android.library'
 
+apply plugin: 'maven'
+apply plugin: 'signing'
+
+ext {
+    OBJECT_STORAGE_SDK_VERSION = '1.0.0-SNAPSHOT'
+}
+
 android {
-    compileSdkVersion 23
-    buildToolsVersion "23.0.2"
+    compileSdkVersion 24
+    buildToolsVersion "24.0.2"
 
     defaultConfig {
         minSdkVersion 19
-        targetSdkVersion 23
+        targetSdkVersion 24
         versionCode 1
         versionName "1.0"
     }
@@ -19,7 +26,123 @@ android {
 }
 
 dependencies {
-    compile 'com.ibm.mobilefirstplatform.clientsdk.android:core:2.+'
+    compile 'com.ibm.mobilefirstplatform.clientsdk.android:core:[2.0.0,3.0.0)'
 
     testCompile 'junit:junit:4.12'
+}
+
+task generateJavadoc(type: Javadoc) {
+    source = android.sourceSets.main.java.srcDirs
+
+    exclude '**/BuildConfig.java'
+    exclude '**/R.java'
+    exclude '**/internal/**'
+
+    options.links 'http://docs.oracle.com/javase/8/docs/api/'
+
+    options.encoding 'UTF-8'
+
+    options.memberLevel = JavadocMemberLevel.PUBLIC
+
+    setTitle 'IBM Object Storage Android API'
+
+    failOnError = false
+}
+
+task androidJavadocsJar(type: Jar, dependsOn: generateJavadoc) {
+    classifier = 'javadoc'
+    from generateJavadoc.destinationDir
+}
+
+task androidSourcesJar(type: Jar) {
+    classifier = 'sources'
+    from android.sourceSets.main.java.srcDirs
+}
+
+task androidLibraryJar(type: Jar, dependsOn: assembleRelease) {
+    from 'build/intermediates/classes/release/'
+    archiveName project.name + '.jar'
+    exclude '**/BuildConfig.*'
+}
+
+artifacts {
+    archives androidSourcesJar
+    archives androidJavadocsJar
+    archives androidLibraryJar
+}
+
+signing {
+    required { isReleaseBuild() }
+    sign configurations.archives
+}
+
+def getRepositoryUsername() {
+    return hasProperty('ossrhUsername') ? ossrhUsername : ''
+}
+
+def getRepositoryPassword() {
+    return hasProperty('ossrhPassword') ? ossrhPassword : ''
+}
+
+def getReleaseRepositoryUrl() {
+    return 'https://oss.sonatype.org/service/local/staging/deploy/maven2/'
+}
+
+def getSnapshotRepositoryUrl() {
+    return 'https://oss.sonatype.org/content/repositories/snapshots/'
+}
+
+def isReleaseBuild() {
+    return !getVersion().contains('-SNAPSHOT')
+}
+
+def getVersion() {
+    return OBJECT_STORAGE_SDK_VERSION
+}
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+
+            repository(url: getReleaseRepositoryUrl()) {
+                authentication(userName: getRepositoryUsername(), password: getRepositoryPassword())
+            }
+
+            snapshotRepository(url: getSnapshotRepositoryUrl()) {
+                authentication(userName: getRepositoryUsername(), password: getRepositoryPassword())
+            }
+
+            pom.groupId='com.ibm.mobilefirstplatform.clientsdk.android'
+            pom.artifactId='objectstorage'
+            pom.version = getVersion()
+
+            pom.project {
+                name 'IBM Bluemix Mobile Services - Object Storage Android SDK'
+                description 'This is the Android SDK for the Object Storage service.'
+                url 'https://github.com/ibm-bluemix-mobile-services/bluemix-objectstorage-clientsdk-android'
+
+                scm {
+                    connection 'scm:git:git@github.com/ibm-bluemix-mobile-services/bluemix-objectstorage-clientsdk-android.git'
+                    developerConnection 'scm:git:git@github.com/ibm-bluemix-mobile-services/bluemix-objectstorage-clientsdk-android.git'
+                    url 'https://github.com/ibm-bluemix-mobile-services/bluemix-objectstorage-clientsdk-android'
+                }
+
+                licenses {
+                    license {
+                        name 'The Apache Software License, Version 2.0'
+                        url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                        distribution 'repo'
+                    }
+                }
+
+                developers {
+                    developer {
+                        name 'IBM Bluemix Services Mobile SDK'
+                        email 'mobilsdk@us.ibm.com'
+                    }
+                }
+            }
+        }
+    }
 }
