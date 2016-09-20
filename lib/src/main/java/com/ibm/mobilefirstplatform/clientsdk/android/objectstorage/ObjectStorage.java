@@ -22,7 +22,10 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -30,16 +33,19 @@ public class ObjectStorage {
     public static final String METADATA_PREFIX = "X-Account-Meta-";
     public static final String AUTH_HEADER = "X-Auth-Token";
 
-    public enum BluemixRegion {DALLAS, LONDON};
+    public enum BluemixRegion {DALLAS, LONDON}
 
-    protected static final String DALLAS_AUTH_URL = "https://identity.open.softlayer.com/v3/auth/tokens";
-    protected static final String LONDON_AUTH_URL = "https://identity.open.softlayer.com/v3/auth/tokens";
+    protected static final String AUTH_URL = "https://identity.open.softlayer.com/v3/auth/tokens";
 
     protected static final String DALLAS_API_URL = "https://dal.objectstorage.open.softlayer.com/v1/AUTH_";
     protected static final String LONDON_API_URL = "https://lon.objectstorage.open.softlayer.com/v1/AUTH_";
 
     private static String authToken = null;
     private static String expiresAt = null;
+    private static String projectID = null;
+    private static String userID = null;
+    private static String password = null;
+
     protected static String objectStorageURL = null;
 
     private static BluemixRegion region = null;
@@ -65,19 +71,26 @@ public class ObjectStorage {
         BMSClient.getInstance().initialize(context, regionString);
     }
 
-    public static void connect(final String projectID, String userID, String password, final ObjectStorageResponseListener<String> userResponseListener){
-        String authURL = null;
-
-        switch(region){
-            case DALLAS:
-                authURL = DALLAS_AUTH_URL;
-                break;
-            case LONDON:
-                authURL = LONDON_AUTH_URL;
-                break;
+    public static void connect(final String pID, String uID, String pw, final ObjectStorageResponseListener<String> userResponseListener){
+        if(uID == null || pw == null){
+            logger.debug("Authentication failed because the user ID or password was null.");
+            if(userResponseListener != null){
+                userResponseListener.onFailure(null, new Throwable("User ID and password cannot be null."), null);
+            }
         }
 
-        Request request = new Request(authURL, Request.POST);
+        projectID = pID;
+        userID = uID;
+        password = pw;
+
+        if(authToken != null && objectStorageURL != null && !hasToReauthenticate()){
+            logger.debug("Authentication session still valid. No authentication request occurred.");
+            if(userResponseListener != null){
+                userResponseListener.onSuccess(authToken);
+            }
+        }
+
+        Request request = new Request(AUTH_URL, Request.POST);
 
         request.addHeader("Content-Type", "application/json");
 
@@ -92,14 +105,16 @@ public class ObjectStorage {
                     authToken = headers.get("X-Subject-Token").get(0);
                 }
                 else{
-                    userResponseListener.onFailure(response, new Throwable("Failed to authenticate with Object Storage."), null);
+                    logger.error("Failed to authenticate with Object Storage.");
+                    if(userResponseListener != null){
+                        userResponseListener.onFailure(response, new Throwable("Failed to authenticate with Object Storage."), null);
+                    }
                     return;
                 }
 
                 try {
                     JSONObject responseJSON = new JSONObject(response.getResponseText());
 
-                    //TODO: Get expiration date, use for refreshing token in every call
                     JSONObject tokenJSON = responseJSON.optJSONObject("token");
 
                     String utcDate = null;
@@ -112,11 +127,17 @@ public class ObjectStorage {
                         expiresAt = utcDate;
                     }
                     else{
-                        userResponseListener.onFailure(response, new Throwable("Failed to authenticate with Object Storage."), null);
+                        logger.error("Failed to authenticate with Object Storage.");
+                        if(userResponseListener != null){
+                            userResponseListener.onFailure(response, new Throwable("Failed to authenticate with Object Storage."), null);
+                        }
                         return;
                     }
                 } catch (JSONException e) {
-                    e.printStackTrace();
+                    logger.error("Failed to authenticate with Object Storage.");
+                    if(userResponseListener != null){
+                        userResponseListener.onFailure(response, e, null);
+                    }
                 }
 
                 switch(region){
@@ -176,9 +197,21 @@ public class ObjectStorage {
 
     public static void createContainer(final String containerName, final ObjectStorageResponseListener<ObjectStorageContainer> userResponseListener){
         if(objectStorageURL == null){
-            logger.error("You have not yet authenticated to Object Storage. Call ObjectStorage.connect() first.");
+            logger.error("You have not yet authenticated with Object Storage. Call ObjectStorage.connect() first.");
             return;
         }
+
+        refreshAuthToken(new ObjectStorageResponseListener<String>() {
+            @Override
+            public void onSuccess(String authToken) {
+
+            }
+
+            @Override
+            public void onFailure(Response response, Throwable t, JSONObject extendedInfo) {
+                logger.error("Could not authenticate with Object Storage. Call ObjectStorage.connect() in order to do so.");
+            }
+        });
 
         Request containerRequest = new Request(objectStorageURL + "/" + containerName, Request.PUT);
 
@@ -207,9 +240,21 @@ public class ObjectStorage {
 
     public static void getContainer(final String containerName, final ObjectStorageResponseListener<ObjectStorageContainer> userResponseListener){
         if(objectStorageURL == null){
-            logger.error("You have not yet authenticated to Object Storage. Call ObjectStorage.connect() first.");
+            logger.error("You have not yet authenticated with Object Storage. Call ObjectStorage.connect() first.");
             return;
         }
+
+        refreshAuthToken(new ObjectStorageResponseListener<String>() {
+            @Override
+            public void onSuccess(String authToken) {
+
+            }
+
+            @Override
+            public void onFailure(Response response, Throwable t, JSONObject extendedInfo) {
+                logger.error("Could not authenticate with Object Storage. Call ObjectStorage.connect() in order to do so.");
+            }
+        });
 
         Request containerRequest = new Request(objectStorageURL + "/" + containerName, Request.GET);
 
@@ -236,9 +281,21 @@ public class ObjectStorage {
 
     public static void getContainerList(final ObjectStorageResponseListener<List<ObjectStorageContainer>> userResponseListener){
         if(objectStorageURL == null){
-            logger.error("You have not yet authenticated to Object Storage. Call ObjectStorage.connect() first.");
+            logger.error("You have not yet authenticated with Object Storage. Call ObjectStorage.connect() first.");
             return;
         }
+
+        refreshAuthToken(new ObjectStorageResponseListener<String>() {
+            @Override
+            public void onSuccess(String authToken) {
+
+            }
+
+            @Override
+            public void onFailure(Response response, Throwable t, JSONObject extendedInfo) {
+                logger.error("Could not authenticate with Object Storage. Call ObjectStorage.connect() in order to do so.");
+            }
+        });
 
         Request containerRequest = new Request(objectStorageURL, Request.GET);
 
@@ -253,7 +310,7 @@ public class ObjectStorage {
                 String[] containerNameList = responseBody.split("\n");
 
                 for(String name : containerNameList){
-                    containerList.add(new ObjectStorageContainer(name)); //TODO: do something with container first?
+                    containerList.add(new ObjectStorageContainer(name));
                 }
 
                 if(userResponseListener != null){
@@ -272,9 +329,21 @@ public class ObjectStorage {
 
     public static void deleteContainer(final String containerName, final ObjectStorageResponseListener<Boolean> userResponseListener){
         if(objectStorageURL == null){
-            logger.error("You have not yet authenticated to Object Storage. Call ObjectStorage.connect() first.");
+            logger.error("You have not yet authenticated with Object Storage. Call ObjectStorage.connect() first.");
             return;
         }
+
+        refreshAuthToken(new ObjectStorageResponseListener<String>() {
+            @Override
+            public void onSuccess(String authToken) {
+
+            }
+
+            @Override
+            public void onFailure(Response response, Throwable t, JSONObject extendedInfo) {
+                logger.error("Could not authenticate with Object Storage. Call ObjectStorage.connect() in order to do so.");
+            }
+        });
 
         Request containerRequest = new Request(objectStorageURL + "/" + containerName, Request.DELETE);
 
@@ -285,7 +354,7 @@ public class ObjectStorage {
             public void onSuccess(Response response) {
 
                 if(userResponseListener != null){
-                    logger.info("Successfully deleted container: " + containerName);
+                    logger.debug("Successfully deleted container: " + containerName);
                     userResponseListener.onSuccess(null); //TODO: send something other than null?
                 }
             }
@@ -302,69 +371,106 @@ public class ObjectStorage {
 
     public static void getAccountMetadata(final ObjectStorageResponseListener<Map<String, List<String>>> userResponseListener){
         if(objectStorageURL == null){
-            logger.error("You have not yet authenticated to Object Storage. Call ObjectStorage.connect() first.");
+            logger.error("You have not yet authenticated with Object Storage. Call ObjectStorage.connect() first.");
             return;
         }
-
-        Request containerRequest = new Request(objectStorageURL, Request.HEAD);
-
-        containerRequest.addHeader(AUTH_HEADER, authToken);
-
-        containerRequest.send(null, new ResponseListener() {
+        refreshAuthToken(new ObjectStorageResponseListener<String>() {
             @Override
-            public void onSuccess(Response response) {
-                Map<String, List<String>> metadataMap = response.getHeaders();
+            public void onSuccess(String authToken) {
+                Request containerRequest = new Request(objectStorageURL, Request.HEAD);
 
-                logger.info("Successfully retrieved account metadata.");
+                containerRequest.addHeader(AUTH_HEADER, authToken);
 
-                if(userResponseListener != null){
-                    userResponseListener.onSuccess(metadataMap);
-                }
+                containerRequest.send(null, new ResponseListener() {
+                    @Override
+                    public void onSuccess(Response response) {
+                        Map<String, List<String>> metadataMap = response.getHeaders();
+
+                        logger.debug("Successfully retrieved account metadata.");
+
+                        if(userResponseListener != null){
+                            userResponseListener.onSuccess(metadataMap);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Response response, Throwable t, JSONObject extendedInfo) {
+                        logger.error("Failed to retrieve account metadata.");
+                        if(userResponseListener != null){
+                            userResponseListener.onFailure(response, t, extendedInfo);
+                        }
+                    }
+                });
             }
 
             @Override
             public void onFailure(Response response, Throwable t, JSONObject extendedInfo) {
-                logger.error("Failed to retrieve account metadata.");
-                if(userResponseListener != null){
-                    userResponseListener.onFailure(response, t, extendedInfo);
-                }
+                logger.error("Could not authenticate with Object Storage. Call ObjectStorage.connect() in order to do so.");
             }
         });
     }
 
-    public static void updateAccountMetadata(Map<String, String> metadataUpdates, final ObjectStorageResponseListener<Boolean> userResponseListener){ //TODO: use something other than boolean?
-        //TODO:
+    public static void updateAccountMetadata(final Map<String, String> metadataUpdates, final ObjectStorageResponseListener<Boolean> userResponseListener){ //TODO: use something other than boolean?
         if(objectStorageURL == null){
-            logger.error("You have not yet authenticated to Object Storage. Call ObjectStorage.connect() first.");
+            logger.error("You have not yet authenticated with Object Storage. Call ObjectStorage.connect() first.");
             return;
         }
 
-        Request containerRequest = new Request(objectStorageURL, Request.POST);
-
-        containerRequest.addHeader(AUTH_HEADER, authToken);
-
-        for(Map.Entry<String, String> metadata : metadataUpdates.entrySet()){
-            containerRequest.addHeader(metadata.getKey(), metadata.getValue());
-        }
-
-        String body = "";
-
-        containerRequest.send(null, body, new ResponseListener() {
+        refreshAuthToken(new ObjectStorageResponseListener<String>() {
             @Override
-            public void onSuccess(Response response) {
-                logger.info("Account metadata successfully updated.");
-                if(userResponseListener != null){
-                    userResponseListener.onSuccess(true); //TODO: pass null?
+            public void onSuccess(String authToken) {
+                Request containerRequest = new Request(objectStorageURL, Request.POST);
+
+                containerRequest.addHeader(AUTH_HEADER, authToken);
+
+                for(Map.Entry<String, String> metadata : metadataUpdates.entrySet()){
+                    containerRequest.addHeader(metadata.getKey(), metadata.getValue());
                 }
+
+                String body = "";
+
+                containerRequest.send(null, body, new ResponseListener() {
+                    @Override
+                    public void onSuccess(Response response) {
+                        logger.debug("Account metadata successfully updated.");
+                        if(userResponseListener != null){
+                            userResponseListener.onSuccess(true); //TODO: pass null?
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Response response, Throwable t, JSONObject extendedInfo) {
+                        logger.error("Failed to update account metadata.");
+                        if(userResponseListener != null){
+                            userResponseListener.onFailure(response, t, extendedInfo);
+                        }
+                    }
+                });
             }
 
             @Override
             public void onFailure(Response response, Throwable t, JSONObject extendedInfo) {
-                logger.error("Failed to update account metadata.");
-                if(userResponseListener != null){
-                    userResponseListener.onFailure(response, t, extendedInfo);
-                }
+                logger.error("Could not authenticate with Object Storage. Call ObjectStorage.connect() in order to do so.");
             }
         });
+    }
+
+    protected static boolean hasToReauthenticate(){
+        if(expiresAt == null || authToken == null){
+            return true;
+        }
+
+        try {
+            Date expirationDate = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(expiresAt);
+
+            return expirationDate.before(new Date());
+        } catch (ParseException e) {
+            logger.error("Failed to parse expiration date, will have to reauthenticate.", e);
+            return true;
+        }
+    }
+
+    protected static void refreshAuthToken(ObjectStorageResponseListener<String> userResponseListener){
+        connect(projectID, userID, password, userResponseListener);
     }
 }
