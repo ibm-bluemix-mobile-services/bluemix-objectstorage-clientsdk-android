@@ -14,7 +14,7 @@ Objects are used to store any data. As a simple example to understand the concep
 ###Adding the SDK to an existing Android project
 To add the Object Storage SDK to your project, go to your module's `build.gradle` and add this into the `dependencies{}` closure:
 
-```compile 'com.ibm.mobilefirstplatform.clientsdk.android:objectstorage:1.+'```
+```compile 'com.ibm.bluemixmobileservices.clientsdk.android:objectstorage:1.+'```
 
 ###Before using the SDK
 In order to use this SDK, the `BMSClient` needs to be initialized as follows:
