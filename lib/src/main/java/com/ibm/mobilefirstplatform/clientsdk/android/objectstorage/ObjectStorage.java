@@ -52,17 +52,17 @@ public class ObjectStorage {
     protected static String objectStorageURL = null;
 
     private static BluemixRegion region = null;
-    private static Context context = null;
 
     protected static final Logger logger = Logger.getLogger(Logger.INTERNAL_PREFIX + ObjectStorage.class.getName());
 
     /**
      * Initialize the Object Storage SDK by specifying which Bluemix region the Object Storage service is in.
-     * @param applicationContext the Android application context; can be found from any Activity by calling activity.getApplicationContext()
+     *
+     * Note: before doing anything else with this SDK, call {@link com.ibm.mobilefirstplatform.clientsdk.android.core.api.BMSClient#initialize(Context, String)} first.
+     *
      * @param bluemixRegion the Bluemix region that the Object Storage service being used is in
      */
-    public static void initialize(Context applicationContext, BluemixRegion bluemixRegion){
-        context = applicationContext;
+    public static void initialize(BluemixRegion bluemixRegion){
         region = bluemixRegion;
 
         if(region == null){
@@ -104,7 +104,7 @@ public class ObjectStorage {
 
         JSONObject bodyJSON = getAuthenticationRequestBody(projectID, userID, password);
 
-        request.send(context, bodyJSON.toString(), new ResponseListener() {
+        request.send(null, bodyJSON.toString(), new ResponseListener() {
             @Override
             public void onSuccess(Response response) {
                 Map<String, List<String>> headers = response.getHeaders();
