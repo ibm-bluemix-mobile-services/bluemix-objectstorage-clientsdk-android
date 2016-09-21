@@ -58,6 +58,9 @@ public class ObjectStorage {
 
     /**
      * Initialize the Object Storage SDK by specifying which Bluemix region the Object Storage service is in.
+     *
+     * Note: before doing anything else with this SDK, call {@link com.ibm.mobilefirstplatform.clientsdk.android.core.api.BMSClient#initialize(Context, String)} first.
+     *
      * @param applicationContext the Android application context; can be found from any Activity by calling activity.getApplicationContext()
      * @param bluemixRegion the Bluemix region that the Object Storage service being used is in
      */
