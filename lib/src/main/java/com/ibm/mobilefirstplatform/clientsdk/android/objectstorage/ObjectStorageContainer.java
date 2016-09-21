@@ -21,6 +21,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * A class that represents an Object Storage container. Can be used to retrieve existing objects, or to store new objects,
+ * as well as to update the container's metadata.
+ */
 public class ObjectStorageContainer {
     public static final String METADATA_PREFIX = "X-Container-Meta-";
 
@@ -29,17 +33,32 @@ public class ObjectStorageContainer {
     protected String name;
     protected String url;
 
+    /**
+     * Create a new container with the given name. {@link ObjectStorage#connect(String, String, String, ObjectStorageResponseListener)}
+     * should be called before creating new containers.
+     * @param name the name of the container
+     */
     public ObjectStorageContainer(String name){
         this.name = name;
 
         url = ObjectStorage.objectStorageURL + "/" + name;
     }
 
+    /**
+     * Get the name of this container.
+     * @return the name of the container
+     */
     public String getName(){
         return name;
     }
 
-    public void storeObject(final String objectName, final byte[] objectData, final ObjectStorageResponseListener<ObjectStorageObject> userResponseListener){ //TODO: Return something other than boolean?
+    /**
+     * Store the given data as an object with the given name inside this container.
+     * @param objectName the name of the object to be stored
+     * @param objectData the data of the object that will be stored in Object Storage
+     * @param userResponseListener an optional response listener with onSuccess and onFailure callbacks. If successful, onSuccess will be called with the object that was stored.
+     */
+    public void storeObject(final String objectName, final byte[] objectData, final ObjectStorageResponseListener<ObjectStorageObject> userResponseListener){
         //This container is used to create the object to be returned.
         final ObjectStorageContainer container = this;
 
@@ -83,6 +102,11 @@ public class ObjectStorageContainer {
         });
     }
 
+    /**
+     * Get the object with the given name from this container.
+     * @param objectName the name of the object to be retrieved
+     * @param userResponseListener an optional response listener with onSuccess and onFailure callbacks. If successful, onSuccess will be called with the requested object.
+     */
     public void getObject(final String objectName, final ObjectStorageResponseListener<ObjectStorageObject> userResponseListener){
         if(objectName == null){
             logger.error("Object name cannot be null.");
@@ -137,6 +161,10 @@ public class ObjectStorageContainer {
         });
     }
 
+    /**
+     * Get a list of all the objects stored inside this container.
+     * @param userResponseListener an optional response listener with onSuccess and onFailure callbacks. If successful, onSuccess will be called with the list of objects inside this container.
+     */
     public void getObjectList(final ObjectStorageResponseListener<List<ObjectStorageObject>> userResponseListener){
         //Used to pass container reference to created objects.
         final ObjectStorageContainer container = this;
@@ -186,7 +214,12 @@ public class ObjectStorageContainer {
         });
     }
 
-    public void deleteObject(final String objectName, final ObjectStorageResponseListener<Boolean> userResponseListener){ //TODO: Return something other than boolean?
+    /**
+     * Delete an object with the given name from this container.
+     * @param objectName the name of the object to be deleted
+     * @param userResponseListener an optional response listener with onSuccess and onFailure callbacks. If successful, onSuccess will be called with null parameters.
+     */
+    public void deleteObject(final String objectName, final ObjectStorageResponseListener<Void> userResponseListener){
         ObjectStorage.refreshAuthToken(new ObjectStorageResponseListener<String>() {
             @Override
             public void onSuccess(String authToken) {
@@ -200,7 +233,7 @@ public class ObjectStorageContainer {
                         logger.debug("Successfully deleted object: " + objectName);
 
                         if(userResponseListener != null){
-                            userResponseListener.onSuccess(true); //TODO: Use something other than boolean?
+                            userResponseListener.onSuccess(null);
                         }
                     }
 
@@ -224,10 +257,18 @@ public class ObjectStorageContainer {
         });
     }
 
-    public void delete(final ObjectStorageResponseListener<Boolean> userResponseListener){ //TODO: Use something other than boolean?
+    /**
+     * Delete this container. This object will no longer be usable after calling this method.
+     * @param userResponseListener an optional response listener with onSuccess and onFailure callbacks. If successful, onSuccess will be called with null parameters.
+     */
+    public void delete(final ObjectStorageResponseListener<Void> userResponseListener){
         ObjectStorage.deleteContainer(name, userResponseListener);
     }
 
+    /**
+     * Get a map of all the container metadata.
+     * @param userResponseListener an optional response listener with onSuccess and onFailure callbacks. If successful, onSuccess will be called with a map of the container metadata.
+     */
     public void getMetadata(final ObjectStorageResponseListener<Map<String, List<String>>> userResponseListener){
         if(url == null){
             logger.error("You have not yet authenticated to Object Storage. Call ObjectStorage.connect() first.");
@@ -273,7 +314,13 @@ public class ObjectStorageContainer {
         });
     }
 
-    public void updateMetadata(final Map<String, String> metadataUpdates, final ObjectStorageResponseListener<Boolean> userResponseListener) { //TODO: Use something other than boolean?
+    /**
+     * Update this container's metadata in Object Storage with the given map of metadata updates.
+     * In order to do this, prefix all metadata names with {@link ObjectStorageContainer#METADATA_PREFIX}.
+     * @param metadataUpdates a map of all the new metadata headers to be added to this container
+     * @param userResponseListener an optional response listener with onSuccess and onFailure callbacks. If successful, onSuccess will be called with null parameters.
+     */
+    public void updateMetadata(final Map<String, String> metadataUpdates, final ObjectStorageResponseListener<Void> userResponseListener) {
         if(url == null){
             logger.error("You have not yet authenticated to Object Storage. Call ObjectStorage.connect() first.");
             return;
@@ -297,7 +344,7 @@ public class ObjectStorageContainer {
                     public void onSuccess(Response response) {
                         logger.debug("Object metadata successfully updated.");
                         if(userResponseListener != null){
-                            userResponseListener.onSuccess(true); //TODO: pass null?
+                            userResponseListener.onSuccess(null);
                         }
                     }
 

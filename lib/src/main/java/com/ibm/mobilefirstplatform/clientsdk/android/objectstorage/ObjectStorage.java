@@ -12,7 +12,6 @@ package com.ibm.mobilefirstplatform.clientsdk.android.objectstorage;
 
 import android.content.Context;
 
-import com.ibm.mobilefirstplatform.clientsdk.android.core.api.BMSClient;
 import com.ibm.mobilefirstplatform.clientsdk.android.core.api.Request;
 import com.ibm.mobilefirstplatform.clientsdk.android.core.api.Response;
 import com.ibm.mobilefirstplatform.clientsdk.android.core.api.ResponseListener;
@@ -29,6 +28,10 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * IBM® Object Storage is a Bluemix service that can be used to store any data. This class is used to
+ * authenticate with the Object Storage service, as well as creating, retrieving and deleting any containers being used.
+ */
 public class ObjectStorage {
     public static final String METADATA_PREFIX = "X-Account-Meta-";
     public static final String AUTH_HEADER = "X-Auth-Token";
@@ -53,35 +56,40 @@ public class ObjectStorage {
 
     protected static final Logger logger = Logger.getLogger(Logger.INTERNAL_PREFIX + ObjectStorage.class.getName());
 
+    /**
+     * Initialize the Object Storage SDK by specifying which Bluemix region the Object Storage service is in.
+     * @param applicationContext the Android application context; can be found from any Activity by calling activity.getApplicationContext()
+     * @param bluemixRegion the Bluemix region that the Object Storage service being used is in
+     */
     public static void initialize(Context applicationContext, BluemixRegion bluemixRegion){
-        region = bluemixRegion;
         context = applicationContext;
+        region = bluemixRegion;
 
-        String regionString = null;
-
-        switch(region){
-            case DALLAS:
-                regionString = BMSClient.REGION_US_SOUTH;
-                break;
-            case LONDON:
-                regionString = BMSClient.REGION_UK;
-                break;
+        if(region == null){
+            region = BluemixRegion.DALLAS; //Set Dallas region by default if none is specified.
         }
-
-        BMSClient.getInstance().initialize(context, regionString);
     }
 
-    public static void connect(final String pID, String uID, String pw, final ObjectStorageResponseListener<String> userResponseListener){
-        if(uID == null || pw == null){
+    /**
+     * Authenticate with the Object Storage service using your project id, user id and password.
+     * These service credentials can be found in Bluemix.
+     *
+     * @param projectIdentifier the project id from the Object Storage service credentials
+     * @param userIdentifier the user id from the Object Storage service credentials
+     * @param accountPassword the password from the Object Storage service credentials
+     * @param userResponseListener an optional response listener with onSuccess and onFailure callbacks. If successful, onSuccess will be called with the authentication token.
+     */
+    public static void connect(final String projectIdentifier, String userIdentifier, String accountPassword, final ObjectStorageResponseListener<String> userResponseListener){
+        if(userIdentifier == null || accountPassword == null){
             logger.debug("Authentication failed because the user ID or password was null.");
             if(userResponseListener != null){
                 userResponseListener.onFailure(null, new Throwable("User ID and password cannot be null."), null);
             }
         }
 
-        projectID = pID;
-        userID = uID;
-        password = pw;
+        projectID = projectIdentifier;
+        userID = userIdentifier;
+        password = accountPassword;
 
         if(authToken != null && objectStorageURL != null && !hasToReauthenticate()){
             logger.debug("Authentication session still valid. No authentication request occurred.");
@@ -195,6 +203,13 @@ public class ObjectStorage {
         return bodyJSON;
     }
 
+    /**
+     * Create the container with the given name, and return the created container in the response listener's success callback.
+     * If the container already exists, it simply returns that existing container.
+     *
+     * @param containerName the name of the container to be created
+     * @param userResponseListener an optional response listener with onSuccess and onFailure callbacks. If successful, onSuccess will be called with the created container.
+     */
     public static void createContainer(final String containerName, final ObjectStorageResponseListener<ObjectStorageContainer> userResponseListener){
         if(objectStorageURL == null){
             logger.error("You have not yet authenticated with Object Storage. Call ObjectStorage.connect() first.");
@@ -204,7 +219,29 @@ public class ObjectStorage {
         refreshAuthToken(new ObjectStorageResponseListener<String>() {
             @Override
             public void onSuccess(String authToken) {
+                Request containerRequest = new Request(objectStorageURL + "/" + containerName, Request.PUT);
 
+                containerRequest.addHeader(AUTH_HEADER, authToken);
+
+                String body = "";
+
+                containerRequest.send(null, body, new ResponseListener() {
+                    @Override
+                    public void onSuccess(Response response) {
+                        ObjectStorageContainer container = new ObjectStorageContainer(containerName);
+
+                        if(userResponseListener != null){
+                            userResponseListener.onSuccess(container);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Response response, Throwable t, JSONObject extendedInfo) {
+                        if(userResponseListener != null){
+                            userResponseListener.onFailure(response, t, extendedInfo);
+                        }
+                    }
+                });
             }
 
             @Override
@@ -212,32 +249,15 @@ public class ObjectStorage {
                 logger.error("Could not authenticate with Object Storage. Call ObjectStorage.connect() in order to do so.");
             }
         });
-
-        Request containerRequest = new Request(objectStorageURL + "/" + containerName, Request.PUT);
-
-        containerRequest.addHeader(AUTH_HEADER, authToken);
-
-        String body = "";
-
-        containerRequest.send(null, body, new ResponseListener() {
-            @Override
-            public void onSuccess(Response response) {
-                ObjectStorageContainer container = new ObjectStorageContainer(containerName);
-
-                if(userResponseListener != null){
-                    userResponseListener.onSuccess(container);
-                }
-            }
-
-            @Override
-            public void onFailure(Response response, Throwable t, JSONObject extendedInfo) {
-                if(userResponseListener != null){
-                    userResponseListener.onFailure(response, t, extendedInfo);
-                }
-            }
-        });
     }
 
+    /**
+     * Retrieve the container with the given name, which is returned in the onSuccess callback.
+     * If the container does not exist, the onFailure callback will be called, which will have the response with the 404 from ObjectStorage.
+     *
+     * @param containerName the name of the container to be retrieved
+     * @param userResponseListener an optional response listener with onSuccess and onFailure callbacks. If successful, onSuccess will be called with the container.
+     */
     public static void getContainer(final String containerName, final ObjectStorageResponseListener<ObjectStorageContainer> userResponseListener){
         if(objectStorageURL == null){
             logger.error("You have not yet authenticated with Object Storage. Call ObjectStorage.connect() first.");
@@ -247,7 +267,27 @@ public class ObjectStorage {
         refreshAuthToken(new ObjectStorageResponseListener<String>() {
             @Override
             public void onSuccess(String authToken) {
+                Request containerRequest = new Request(objectStorageURL + "/" + containerName, Request.GET);
 
+                containerRequest.addHeader(AUTH_HEADER, authToken);
+
+                containerRequest.send(null, new ResponseListener() {
+                    @Override
+                    public void onSuccess(Response response) {
+                        ObjectStorageContainer container = new ObjectStorageContainer(containerName);
+
+                        if(userResponseListener != null){
+                            userResponseListener.onSuccess(container);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Response response, Throwable t, JSONObject extendedInfo) {
+                        if(userResponseListener != null){
+                            userResponseListener.onFailure(response, t, extendedInfo);
+                        }
+                    }
+                });
             }
 
             @Override
@@ -256,29 +296,13 @@ public class ObjectStorage {
             }
         });
 
-        Request containerRequest = new Request(objectStorageURL + "/" + containerName, Request.GET);
 
-        containerRequest.addHeader(AUTH_HEADER, authToken);
-
-        containerRequest.send(null, new ResponseListener() {
-            @Override
-            public void onSuccess(Response response) {
-                ObjectStorageContainer container = new ObjectStorageContainer(containerName);
-
-                if(userResponseListener != null){
-                    userResponseListener.onSuccess(container);
-                }
-            }
-
-            @Override
-            public void onFailure(Response response, Throwable t, JSONObject extendedInfo) {
-                if(userResponseListener != null){
-                    userResponseListener.onFailure(response, t, extendedInfo);
-                }
-            }
-        });
     }
 
+    /**
+     * Get a list of all the containers in this Object Storage service instance.
+     * @param userResponseListener an optional response listener with onSuccess and onFailure callbacks. If successful, onSuccess will be called with the list of containers.
+     */
     public static void getContainerList(final ObjectStorageResponseListener<List<ObjectStorageContainer>> userResponseListener){
         if(objectStorageURL == null){
             logger.error("You have not yet authenticated with Object Storage. Call ObjectStorage.connect() first.");
@@ -288,7 +312,34 @@ public class ObjectStorage {
         refreshAuthToken(new ObjectStorageResponseListener<String>() {
             @Override
             public void onSuccess(String authToken) {
+                Request containerRequest = new Request(objectStorageURL, Request.GET);
 
+                containerRequest.addHeader(AUTH_HEADER, authToken);
+
+                containerRequest.send(null, new ResponseListener() {
+                    @Override
+                    public void onSuccess(Response response) {
+                        List<ObjectStorageContainer> containerList = new ArrayList<>();
+
+                        String responseBody = response.getResponseText();
+                        String[] containerNameList = responseBody.split("\n");
+
+                        for(String name : containerNameList){
+                            containerList.add(new ObjectStorageContainer(name));
+                        }
+
+                        if(userResponseListener != null){
+                            userResponseListener.onSuccess(containerList);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Response response, Throwable t, JSONObject extendedInfo) {
+                        if(userResponseListener != null){
+                            userResponseListener.onFailure(response, t, extendedInfo);
+                        }
+                    }
+                });
             }
 
             @Override
@@ -296,38 +347,14 @@ public class ObjectStorage {
                 logger.error("Could not authenticate with Object Storage. Call ObjectStorage.connect() in order to do so.");
             }
         });
-
-        Request containerRequest = new Request(objectStorageURL, Request.GET);
-
-        containerRequest.addHeader(AUTH_HEADER, authToken);
-
-        containerRequest.send(null, new ResponseListener() {
-            @Override
-            public void onSuccess(Response response) {
-                List<ObjectStorageContainer> containerList = new ArrayList<>();
-
-                String responseBody = response.getResponseText();
-                String[] containerNameList = responseBody.split("\n");
-
-                for(String name : containerNameList){
-                    containerList.add(new ObjectStorageContainer(name));
-                }
-
-                if(userResponseListener != null){
-                    userResponseListener.onSuccess(containerList);
-                }
-            }
-
-            @Override
-            public void onFailure(Response response, Throwable t, JSONObject extendedInfo) {
-                if(userResponseListener != null){
-                    userResponseListener.onFailure(response, t, extendedInfo);
-                }
-            }
-        });
     }
 
-    public static void deleteContainer(final String containerName, final ObjectStorageResponseListener<Boolean> userResponseListener){
+    /**
+     * Delete a container from this Object Storage account.
+     * @param containerName the name of the container to be deleted
+     * @param userResponseListener an optional response listener with onSuccess and onFailure callbacks. If successful, onSuccess will be called with null parameters.
+     */
+    public static void deleteContainer(final String containerName, final ObjectStorageResponseListener<Void> userResponseListener){
         if(objectStorageURL == null){
             logger.error("You have not yet authenticated with Object Storage. Call ObjectStorage.connect() first.");
             return;
@@ -336,7 +363,28 @@ public class ObjectStorage {
         refreshAuthToken(new ObjectStorageResponseListener<String>() {
             @Override
             public void onSuccess(String authToken) {
+                Request containerRequest = new Request(objectStorageURL + "/" + containerName, Request.DELETE);
 
+                containerRequest.addHeader(AUTH_HEADER, authToken);
+
+                containerRequest.send(null, new ResponseListener() {
+                    @Override
+                    public void onSuccess(Response response) {
+
+                        if(userResponseListener != null){
+                            logger.debug("Successfully deleted container: " + containerName);
+                            userResponseListener.onSuccess(null);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Response response, Throwable t, JSONObject extendedInfo) {
+                        logger.error("Failed to delete container: " + containerName);
+                        if(userResponseListener != null){
+                            userResponseListener.onFailure(response, t, extendedInfo);
+                        }
+                    }
+                });
             }
 
             @Override
@@ -345,30 +393,13 @@ public class ObjectStorage {
             }
         });
 
-        Request containerRequest = new Request(objectStorageURL + "/" + containerName, Request.DELETE);
 
-        containerRequest.addHeader(AUTH_HEADER, authToken);
-
-        containerRequest.send(null, new ResponseListener() {
-            @Override
-            public void onSuccess(Response response) {
-
-                if(userResponseListener != null){
-                    logger.debug("Successfully deleted container: " + containerName);
-                    userResponseListener.onSuccess(null); //TODO: send something other than null?
-                }
-            }
-
-            @Override
-            public void onFailure(Response response, Throwable t, JSONObject extendedInfo) {
-                logger.error("Failed to delete container: " + containerName);
-                if(userResponseListener != null){
-                    userResponseListener.onFailure(response, t, extendedInfo);
-                }
-            }
-        });
     }
 
+    /**
+     * Get the account metadata.
+     * @param userResponseListener an optional response listener with onSuccess and onFailure callbacks. If successful, onSuccess will be called with a map of the metadata headers.
+     */
     public static void getAccountMetadata(final ObjectStorageResponseListener<Map<String, List<String>>> userResponseListener){
         if(objectStorageURL == null){
             logger.error("You have not yet authenticated with Object Storage. Call ObjectStorage.connect() first.");
@@ -410,7 +441,12 @@ public class ObjectStorage {
         });
     }
 
-    public static void updateAccountMetadata(final Map<String, String> metadataUpdates, final ObjectStorageResponseListener<Boolean> userResponseListener){ //TODO: use something other than boolean?
+    /**
+     * Update the account metadata with the given metadata headers. When doing this, prepend the ObjectStorage.METADATA_PREFIX to the header names in the map.
+     * @param metadataUpdates a map of metadata headers to be added to the account metadata
+     * @param userResponseListener an optional response listener with onSuccess and onFailure callbacks. If successful, onSuccess will be called with null parameters.
+     */
+    public static void updateAccountMetadata(final Map<String, String> metadataUpdates, final ObjectStorageResponseListener<Void> userResponseListener){
         if(objectStorageURL == null){
             logger.error("You have not yet authenticated with Object Storage. Call ObjectStorage.connect() first.");
             return;
@@ -434,7 +470,7 @@ public class ObjectStorage {
                     public void onSuccess(Response response) {
                         logger.debug("Account metadata successfully updated.");
                         if(userResponseListener != null){
-                            userResponseListener.onSuccess(true); //TODO: pass null?
+                            userResponseListener.onSuccess(null);
                         }
                     }
 

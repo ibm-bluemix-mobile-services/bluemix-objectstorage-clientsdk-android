@@ -20,6 +20,10 @@ import org.json.JSONObject;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * This class represents an object that has been stored in Object Storage. This kind of object has
+ * associated data stored with it. The data is given as a byte array.
+ */
 public class ObjectStorageObject {
     public static final String METADATA_PREFIX = "X-Object-Meta-";
 
@@ -31,6 +35,14 @@ public class ObjectStorageObject {
 
     protected byte[] bytes;
 
+    /**
+     * Create a new Object Storage object with the given name and data, inside the given container.
+     * If the object has not been stored previously in Object Storage, call
+     * {@link ObjectStorageContainer#storeObject(String, byte[], ObjectStorageResponseListener)} first.
+     * @param name the name of the object
+     * @param container the container this object is stored in
+     * @param objectBytes the object's data, given as a byte array
+     */
     public ObjectStorageObject(String name, ObjectStorageContainer container, byte[] objectBytes){
         this.name = name;
         this.container = container;
@@ -38,10 +50,19 @@ public class ObjectStorageObject {
         this.bytes = objectBytes;
     }
 
+    /**
+     * Get the name of this object.
+     * @return the name of this object
+     */
     public String getName(){
         return name;
     }
 
+    /**
+     * Load the given object's data from Object Storage as a byte array.
+     * @param shouldCache specify whether this object's data should be cached in memory, which can be accessed with {@link #getCachedData()}
+     * @param userResponseListener an optional response listener with onSuccess and onFailure callbacks. If successful, onSuccess will be called with the object's data as a byte array.
+     */
     public void load(final boolean shouldCache, final ObjectStorageResponseListener<byte[]> userResponseListener){
         logger.debug("Loading object: " + name);
         ObjectStorage.refreshAuthToken(new ObjectStorageResponseListener<String>() {
@@ -87,10 +108,18 @@ public class ObjectStorageObject {
         });
     }
 
-    public void delete(final ObjectStorageResponseListener<Boolean> userResponseListener){ //TODO: Should use Boolean?
+    /**
+     * Delete this object from Object Storage. It only deletes the object from the container from which it was retrieved.
+     * @param userResponseListener an optional response listener with onSuccess and onFailure callbacks. If successful, onSuccess will be called with null parameters.
+     */
+    public void delete(final ObjectStorageResponseListener<Void> userResponseListener){
         container.deleteObject(name, userResponseListener);
     }
 
+    /**
+     * Get a map of the metadata associated with this object.
+     * @param userResponseListener an optional response listener with onSuccess and onFailure callbacks. If successful, onSuccess will be called with a map of the object's metadata.
+     */
     public void getMetadata(final ObjectStorageResponseListener<Map<String, List<String>>> userResponseListener){
         if(url == null){
             logger.error("You have not yet authenticated to Object Storage. Call ObjectStorage.connect() first.");
@@ -136,7 +165,12 @@ public class ObjectStorageObject {
 
     }
 
-    public void updateMetadata(final Map<String, String> metadataUpdates, final ObjectStorageResponseListener<Boolean> userResponseListener) { //TODO: Use something other than boolean?
+    /**
+     * Update this object's metadata with the given map of metadata values. In order to do so, prefix all metadata names with {@link #METADATA_PREFIX};
+     * @param metadataUpdates a map of the metadata to be added to this object
+     * @param userResponseListener an optional response listener with onSuccess and onFailure callbacks. If successful, onSuccess will be called with null parameters.
+     */
+    public void updateMetadata(final Map<String, String> metadataUpdates, final ObjectStorageResponseListener<Void> userResponseListener) {
         if(url == null){
             logger.error("You have not yet authenticated to Object Storage. Call ObjectStorage.connect() first.");
             return;
@@ -160,7 +194,7 @@ public class ObjectStorageObject {
                     public void onSuccess(Response response) {
                         logger.debug("Object metadata successfully updated.");
                         if(userResponseListener != null){
-                            userResponseListener.onSuccess(true); //TODO: pass null?
+                            userResponseListener.onSuccess(null);
                         }
                     }
 
@@ -184,6 +218,10 @@ public class ObjectStorageObject {
         });
     }
 
+    /**
+     * Get this object's data as a byte array that was cached after calling {@link #load(boolean, ObjectStorageResponseListener)}.
+     * @return this object's data, as a byte array. This will be null if the object has not been cached while loading it.
+     */
     public byte[] getCachedData(){
         return bytes;
     }
