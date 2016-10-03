@@ -332,6 +332,9 @@ The package is supported on Android API level 17 and up (Android 4.2.x and up).
 
 ###Change log
 
+####1.0.1
+* Fixed bug where invalid containers/objects would be included when retrieving lists of containers/objects.
+
 ####1.0.0
 * Initial release.
 
