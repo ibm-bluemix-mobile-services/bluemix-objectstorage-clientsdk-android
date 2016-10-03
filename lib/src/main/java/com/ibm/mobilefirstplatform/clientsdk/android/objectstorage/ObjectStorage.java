@@ -325,7 +325,9 @@ public class ObjectStorage {
                         String[] containerNameList = responseBody.split("\n");
 
                         for(String name : containerNameList){
-                            containerList.add(new ObjectStorageContainer(name));
+                            if(name != null && name.length() > 0){
+                                containerList.add(new ObjectStorageContainer(name));
+                            }
                         }
 
                         if(userResponseListener != null){
