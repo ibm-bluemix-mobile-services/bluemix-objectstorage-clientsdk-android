@@ -4,7 +4,7 @@
 [![Build Status](https://travis-ci.org/ibm-bluemix-mobile-services/bluemix-objectstorage-clientsdk-android.svg?branch=master)](https://travis-ci.org/ibm-bluemix-mobile-services/bluemix-objectstorage-clientsdk-android)
 [![Build Status](https://travis-ci.org/ibm-bluemix-mobile-services/bluemix-objectstorage-clientsdk-android.svg?branch=development)](https://travis-ci.org/ibm-bluemix-mobile-services/bluemix-objectstorage-clientsdk-android)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.ibm.bluemixmobileservices.clientsdk.android/objectstorage/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.ibm.bluemixmobileservices.clientsdk.android/objectstorage)
-[![Quality Gate](http://nemo.sonarqube.org/api/badges/gate?key=bluemix-objectstorage-clientsdk-android)](http://nemo.sonarqube.org/dashboard/index/bluemix-objectstorage-clientsdk-android) 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/22fcc55378714620bfea8f14ea2a1932)](https://www.codacy.com/app/ibm-bluemix-mobile-services/bluemix-objectstorage-clientsdk-android?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=ibm-bluemix-mobile-services/bluemix-objectstorage-clientsdk-android&amp;utm_campaign=Badge_Grade)
 [![javadoc.io](https://javadoc-emblem.rhcloud.com/doc/com.ibm.bluemixmobileservices.clientsdk.android/objectstorage/badge.svg)](http://www.javadoc.io/doc/com.ibm.bluemixmobileservices.clientsdk.android/objectstorage)
 
 This is the [IBM® Bluemix® Object Storage](https://new-console.ng.bluemix.net/docs/services/ObjectStorage/index.html) SDK for Android.
