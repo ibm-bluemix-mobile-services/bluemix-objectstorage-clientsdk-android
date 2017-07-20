@@ -223,7 +223,9 @@ public class ObjectStorage {
 
                 containerRequest.addHeader(AUTH_HEADER, authToken);
 
-                String body = "";
+                // OkHttp does not allow an empty PUT body. It doesn't matter what it is; objectStorage
+                // will ignore it on the PUT.
+                String body = "nonempty";
 
                 containerRequest.send(null, body, new ResponseListener() {
                     @Override
