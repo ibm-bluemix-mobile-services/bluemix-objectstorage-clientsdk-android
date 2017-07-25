@@ -4,7 +4,7 @@ apply plugin: 'maven'
 apply plugin: 'signing'
 
 ext {
-    OBJECT_STORAGE_SDK_VERSION = '1.0.3-SNAPSHOT'
+    OBJECT_STORAGE_SDK_VERSION = '1.0.4-SNAPSHOT'
 }
 
 android {
