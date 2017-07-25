@@ -26,7 +26,7 @@ android {
 }
 
 dependencies {
-    compile 'com.ibm.mobilefirstplatform.clientsdk.android:core:[2.0.0,3.0.0)'
+    compile 'com.ibm.mobilefirstplatform.clientsdk.android:core:[3.0.0,4.0.0)'
 
     testCompile 'junit:junit:4.12'
 }
