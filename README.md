@@ -1,3 +1,9 @@
+- - -
+
+**_This project has been deprecated and is no longer actively maintained. Proceed at your own risk!_**
+
+- - - 
+
 #IBM Bluemix Mobile Services - Object Storage Android SDK
 ===
 
